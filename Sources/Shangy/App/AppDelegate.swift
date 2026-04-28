@@ -10,6 +10,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         installStatusItem()
         installPanel()
+        // Trigger the Screen Recording prompt exactly once at launch if we
+        // don't already hold permission. ScreenCaptureKit calls past this
+        // point are gated on CGPreflightScreenCaptureAccess(), so we never
+        // re-pop the TCC dialog mid-session.
+        if #available(macOS 14.0, *), !ScreenCapturer.hasPermission() {
+            ScreenCapturer.requestPermission()
+        }
         brain.start()
         NotificationCenter.default.addObserver(
             self,
@@ -60,12 +67,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func installStatusItem() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // squareLength guarantees a visible width even if the icon fails to load.
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
-            let icon = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Shangy")
-            icon?.isTemplate = true
-            button.image = icon
-            button.imagePosition = .imageOnly
+            if let icon = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Shangy") {
+                icon.isTemplate = true
+                button.image = icon
+                button.imagePosition = .imageOnly
+            } else {
+                // Fallback so the menu is always reachable.
+                button.title = "✶"
+            }
             button.toolTip = "Shangy — click for menu"
         }
         let menu = NSMenu()

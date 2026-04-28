@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 import ScreenCaptureKit
 
 enum ScreenCaptureError: Error {
@@ -9,7 +10,28 @@ enum ScreenCaptureError: Error {
 
 @available(macOS 14.0, *)
 final class ScreenCapturer {
+    /// Non-prompting check. Returns whether the binary currently has Screen
+    /// Recording approval in TCC for its bundle id + code-sign hash.
+    static func hasPermission() -> Bool {
+        return CGPreflightScreenCaptureAccess()
+    }
+
+    /// Triggers the system permission prompt exactly once per app launch.
+    /// If the user has already approved, this is a no-op. If they have
+    /// denied, this opens the prompt again.
+    @discardableResult
+    static func requestPermission() -> Bool {
+        return CGRequestScreenCaptureAccess()
+    }
+
     func snapshot(maxDimension: CGFloat = 1024) async throws -> Data {
+        // Gate every snapshot on a non-prompting preflight. Without this,
+        // each ScreenCaptureKit call when permission is missing pops a
+        // fresh TCC dialog — once per timer tick, ad infinitum.
+        guard CGPreflightScreenCaptureAccess() else {
+            throw ScreenCaptureError.permissionDenied
+        }
+
         let content: SCShareableContent
         do {
             content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)

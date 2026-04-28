@@ -6,7 +6,9 @@ struct SoothsayerView: View {
 
     var body: some View {
         GeometryReader { geo in
-            ZStack(alignment: .bottomLeading) {
+            // Anchor at top-leading so multi-line bubbles grow downward
+            // (toward the character) instead of upward off-screen.
+            ZStack(alignment: .topLeading) {
                 SceneHostView(scene: brain.scene) { normalized in
                     bubbleX = normalized
                 }
@@ -18,7 +20,7 @@ struct SoothsayerView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .offset(
                             x: clampedBubbleX(geo.size.width),
-                            y: -geo.size.height + 30
+                            y: 12
                         )
                         .animation(.spring(response: 0.45, dampingFraction: 0.8), value: line)
                 }

@@ -36,10 +36,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func panelFrame() -> NSRect {
         guard let screen = NSScreen.main else {
-            return NSRect(x: 0, y: 0, width: 1200, height: 320)
+            return NSRect(x: 0, y: 0, width: 1200, height: 480)
         }
         let frame = screen.frame
-        let height: CGFloat = 360
+        let height: CGFloat = 480
         return NSRect(x: frame.minX, y: frame.minY, width: frame.width, height: height)
     }
 
@@ -62,8 +62,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func installStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            button.title = "✶"
-            button.toolTip = "Shangy"
+            let icon = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Shangy")
+            icon?.isTemplate = true
+            button.image = icon
+            button.imagePosition = .imageOnly
+            button.toolTip = "Shangy — click for menu"
         }
         let menu = NSMenu()
         menu.addItem(withTitle: "Speak Now", action: #selector(speakNow), keyEquivalent: "s").target = self

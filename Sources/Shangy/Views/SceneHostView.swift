@@ -33,6 +33,7 @@ struct SceneHostView: NSViewRepresentable {
         let scene: SoothsayerScene
         weak var view: SCNView?
         var onPositionChange: ((CGFloat) -> Void)?
+        private var lastEmitted: CGFloat = -1
 
         init(scene: SoothsayerScene) { self.scene = scene }
 
@@ -41,6 +42,10 @@ struct SceneHostView: NSViewRepresentable {
             let world = scene.rig.root.presentation.position
             let projected = renderer.projectPoint(SCNVector3(world.x, 0.6, world.z))
             let normalized = CGFloat(projected.x) / max(view.bounds.width, 1)
+            // Throttle: only emit when the projected position has moved enough
+            // to matter. Avoids 60 Hz SwiftUI re-evaluations.
+            guard abs(normalized - lastEmitted) > 0.005 else { return }
+            lastEmitted = normalized
             DispatchQueue.main.async { [weak self] in
                 self?.onPositionChange?(normalized)
             }

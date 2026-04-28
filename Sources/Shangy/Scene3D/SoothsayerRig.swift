@@ -18,6 +18,10 @@ final class SoothsayerRig {
     var facing: Facing = .right { didSet { applyFacing() } }
     enum Facing { case left, right }
 
+    /// While true, walk/idle pose updates skip the right arm so a one-shot
+    /// gesture (proclaim) is not overwritten on every tick.
+    var armsLocked: Bool = false
+
     init() {
         build()
     }
@@ -58,12 +62,10 @@ final class SoothsayerRig {
         installGlasses(on: head, frame: frameMaterial, lens: silhouette)
         head.addChildNode(glasses)
 
-        // Arms — pivot at shoulder, hang down with slight outward angle.
         let shoulderY: CGFloat = 0.22
         configureArm(leftArm, length: 0.62, parent: torso, anchor: SCNVector3(-0.34, shoulderY, 0), material: silhouette, mirrored: true)
         configureArm(rightArm, length: 0.62, parent: torso, anchor: SCNVector3(0.34, shoulderY, 0), material: silhouette, mirrored: false)
 
-        // Legs — baggy joggers, sneakers at the bottom.
         configureLeg(leftLeg, length: 0.60, parent: pelvis, anchor: SCNVector3(-0.14, 0, 0), material: silhouette)
         configureLeg(rightLeg, length: 0.60, parent: pelvis, anchor: SCNVector3(0.14, 0, 0), material: silhouette)
 
@@ -96,18 +98,16 @@ final class SoothsayerRig {
         hair.position = SCNVector3(0, 0.10, -0.02)
         head.addChildNode(hair)
 
-        // Big base mass of hair
         let mass = SCNNode(geometry: SCNSphere(radius: 0.22))
         mass.geometry?.firstMaterial = material
         mass.scale = SCNVector3(1.05, 0.95, 1.0)
         mass.position = SCNVector3(0, 0.05, 0)
         hair.addChildNode(mass)
 
-        // Spikes radiating up and outward
         let count = 22
         for i in 0..<count {
-            let theta = (Double(i) / Double(count)) * .pi * 2
-            let lift = Double.random(in: 0.18...0.42)
+            let theta = CGFloat(i) / CGFloat(count) * .pi * 2
+            let lift = CGFloat.random(in: 0.18...0.42)
             let spikeLen = CGFloat.random(in: 0.18...0.40)
             let radius = CGFloat.random(in: 0.05...0.18)
             let cone = SCNCone(topRadius: 0.005, bottomRadius: 0.04, height: spikeLen)
@@ -116,16 +116,14 @@ final class SoothsayerRig {
             let baseX = radius * cos(theta)
             let baseZ = radius * sin(theta) * 0.8
             n.position = SCNVector3(baseX, 0.10 + lift * 0.25, baseZ)
-            // Tilt outward and upward
             n.eulerAngles = SCNVector3(
-                Float(-sin(theta) * 0.6),
-                Float.random(in: -0.4...0.4),
-                Float(cos(theta) * 0.6)
+                CGFloat(-sin(theta) * 0.6),
+                CGFloat.random(in: -0.4...0.4),
+                CGFloat(cos(theta) * 0.6)
             )
             hair.addChildNode(n)
         }
 
-        // A few tall front spikes
         for _ in 0..<4 {
             let spikeLen = CGFloat.random(in: 0.30...0.50)
             let cone = SCNCone(topRadius: 0.004, bottomRadius: 0.035, height: spikeLen)
@@ -137,9 +135,9 @@ final class SoothsayerRig {
                 CGFloat.random(in: 0.04...0.10)
             )
             n.eulerAngles = SCNVector3(
-                Float.random(in: -0.4 ... -0.1),
-                Float.random(in: -0.3...0.3),
-                Float.random(in: -0.3...0.3)
+                CGFloat.random(in: -0.4 ... -0.1),
+                CGFloat.random(in: -0.3...0.3),
+                CGFloat.random(in: -0.3...0.3)
             )
             hair.addChildNode(n)
         }
@@ -155,8 +153,8 @@ final class SoothsayerRig {
         let frameThickness: CGFloat = 0.018
         let depth: CGFloat = 0.02
 
-        for sign in [-1.0, 1.0] {
-            let center = SCNVector3(CGFloat(sign) * 0.075, 0, 0)
+        for sign: CGFloat in [-1, 1] {
+            let center = SCNVector3(sign * 0.075, 0, 0)
             let lensFill = SCNNode(geometry: SCNBox(
                 width: lensWidth, height: lensHeight, length: depth * 0.5, chamferRadius: 0.012
             ))
@@ -164,7 +162,6 @@ final class SoothsayerRig {
             lensFill.position = center
             glasses.addChildNode(lensFill)
 
-            // Frame: 4 bars (top, bottom, left, right)
             let halfW = lensWidth / 2
             let halfH = lensHeight / 2
             let bars: [(SCNVector3, CGFloat, CGFloat)] = [
@@ -181,7 +178,6 @@ final class SoothsayerRig {
             }
         }
 
-        // Bridge between lenses
         let bridge = SCNNode(geometry: SCNBox(width: 0.04, height: frameThickness, length: depth, chamferRadius: 0.002))
         bridge.geometry?.firstMaterial = frame
         bridge.position = SCNVector3(0, 0, 0)
@@ -216,8 +212,7 @@ final class SoothsayerRig {
         hand.position = SCNVector3(0, -length + 0.02, 0)
         limb.addChildNode(hand)
 
-        // Slight outward resting tilt
-        let outward: Float = mirrored ? 0.10 : -0.10
+        let outward: CGFloat = mirrored ? 0.10 : -0.10
         limb.eulerAngles = SCNVector3(0, 0, outward)
         parent.addChildNode(limb)
     }
@@ -247,8 +242,8 @@ final class SoothsayerRig {
     // MARK: - Backlight
 
     private func installRGBBacklight(on anchor: SCNNode) {
-        let colors: [(NSColor, Double)] = [
-            (NSColor(calibratedRed: 1.0, green: 0.15, blue: 0.35, alpha: 1), 0.0),
+        let colors: [(NSColor, CGFloat)] = [
+            (NSColor(calibratedRed: 1.0, green: 0.15, blue: 0.35, alpha: 1), 0),
             (NSColor(calibratedRed: 0.15, green: 1.0, blue: 0.40, alpha: 1), 2 * .pi / 3),
             (NSColor(calibratedRed: 0.20, green: 0.45, blue: 1.0, alpha: 1), 4 * .pi / 3)
         ]
@@ -266,20 +261,18 @@ final class SoothsayerRig {
             plane.renderingOrder = -10
             anchor.addChildNode(plane)
 
-            // Orbit slowly to create cycling RGB cloud.
             let radius: CGFloat = 0.55
-            let period: CFTimeInterval = 7.0
-            let orbit = SCNAction.customAction(duration: period) { node, elapsed in
-                let t = phase + (Double(elapsed) / period) * 2 * .pi
+            let period: CGFloat = 7.0
+            let orbit = SCNAction.customAction(duration: TimeInterval(period)) { node, elapsed in
+                let t = phase + (elapsed / period) * 2 * .pi
                 node.position = SCNVector3(
-                    radius * CGFloat(cos(t)),
-                    radius * 0.55 * CGFloat(sin(t)),
+                    radius * cos(t),
+                    radius * 0.55 * sin(t),
                     0
                 )
             }
             plane.runAction(SCNAction.repeatForever(orbit))
 
-            // Subtle pulse.
             let pulse = SCNAction.sequence([
                 SCNAction.scale(to: 1.10, duration: 1.6),
                 SCNAction.scale(to: 0.92, duration: 1.6)
@@ -316,43 +309,51 @@ final class SoothsayerRig {
     // MARK: - Pose
 
     private func applyFacing() {
-        let target: Float = (facing == .right) ? .pi * 0.06 : -.pi * 0.06
+        // Lean ~30° toward direction of travel — keeps glasses/hair silhouette
+        // legible (vs. full profile) while clearly indicating heading.
+        let target: CGFloat = (facing == .right) ? .pi * 0.18 : -.pi * 0.18
         body.eulerAngles = SCNVector3(0, target, 0)
     }
 
     func setLegSwing(phase: Double) {
-        let swing = Float(sin(phase)) * 0.55
+        let swing = CGFloat(sin(phase)) * 0.55
         leftLeg.eulerAngles = SCNVector3(swing, 0, 0)
         rightLeg.eulerAngles = SCNVector3(-swing, 0, 0)
     }
 
     func setArmSwing(phase: Double) {
-        let swing = Float(sin(phase)) * 0.45
-        leftArm.eulerAngles = SCNVector3(-swing, 0, Float.pi * 0.04)
-        rightArm.eulerAngles = SCNVector3(swing, 0, -Float.pi * 0.04)
+        let swing = CGFloat(sin(phase)) * 0.45
+        leftArm.eulerAngles = SCNVector3(-swing, 0, .pi * 0.04)
+        if !armsLocked {
+            rightArm.eulerAngles = SCNVector3(swing, 0, -.pi * 0.04)
+        }
     }
 
     func setBob(phase: Double) {
-        let bob = Float(abs(sin(phase * 2))) * 0.04
+        let bob = CGFloat(abs(sin(phase * 2))) * 0.04
         torso.position.y = 0.30 + bob
     }
 
     func setIdleSway(phase: Double) {
-        let sway = Float(sin(phase)) * 0.06
+        let sway = CGFloat(sin(phase)) * 0.06
         torso.eulerAngles.z = sway * 0.4
-        leftArm.eulerAngles = SCNVector3(0, 0, Float.pi * 0.08 + sway * 0.25)
-        rightArm.eulerAngles = SCNVector3(0, 0, -Float.pi * 0.08 - sway * 0.25)
+        leftArm.eulerAngles = SCNVector3(0, 0, .pi * 0.08 + sway * 0.25)
+        if !armsLocked {
+            rightArm.eulerAngles = SCNVector3(0, 0, -.pi * 0.08 - sway * 0.25)
+        }
     }
 
     func proclaim() -> SCNAction {
-        let raise = SCNAction.rotateTo(x: -.pi * 0.55, y: 0, z: -.pi * 0.20, duration: 0.35)
-        raise.timingMode = .easeInEaseOut
-        let hold = SCNAction.wait(duration: 0.6)
-        let lower = SCNAction.rotateTo(x: 0, y: 0, z: -.pi * 0.05, duration: 0.4)
-        lower.timingMode = .easeInEaseOut
-        let seq = SCNAction.sequence([raise, hold, lower])
         return SCNAction.run { [weak self] _ in
-            self?.rightArm.runAction(seq)
+            guard let self else { return }
+            self.armsLocked = true
+            let raise = SCNAction.rotateTo(x: -.pi * 0.55, y: 0, z: -.pi * 0.20, duration: 0.35)
+            raise.timingMode = .easeInEaseOut
+            let hold = SCNAction.wait(duration: 0.6)
+            let lower = SCNAction.rotateTo(x: 0, y: 0, z: -.pi * 0.05, duration: 0.4)
+            lower.timingMode = .easeInEaseOut
+            let unlock = SCNAction.run { [weak self] _ in self?.armsLocked = false }
+            self.rightArm.runAction(SCNAction.sequence([raise, hold, lower, unlock]))
         }
     }
 }

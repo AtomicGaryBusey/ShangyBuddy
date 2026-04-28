@@ -2,6 +2,8 @@ import AppKit
 import SceneKit
 
 final class SoothsayerScene: SCNScene {
+    static let orthographicScale: CGFloat = 1.45
+
     let rig = SoothsayerRig()
     let cameraNode = SCNNode()
 
@@ -14,7 +16,7 @@ final class SoothsayerScene: SCNScene {
 
         let camera = SCNCamera()
         camera.usesOrthographicProjection = true
-        camera.orthographicScale = 1.45
+        camera.orthographicScale = Self.orthographicScale
         camera.zNear = 0.1
         camera.zFar = 200
         cameraNode.camera = camera

@@ -1,7 +1,8 @@
 import Foundation
 import SceneKit
 
-@MainActor
+/// Drives the rig's per-frame pose. All public methods and the display-link
+/// callback land on the main thread; nothing here is touched from elsewhere.
 final class WalkCycle {
     private let rig: SoothsayerRig
     private var displayLink: CVDisplayLink?
@@ -52,8 +53,16 @@ final class WalkCycle {
     func stop() {
         if let link = displayLink {
             CVDisplayLinkStop(link)
+            CVDisplayLinkSetOutputCallback(link, nil, nil)
         }
         displayLink = nil
+    }
+
+    deinit {
+        if let link = displayLink {
+            CVDisplayLinkStop(link)
+            CVDisplayLinkSetOutputCallback(link, nil, nil)
+        }
     }
 
     func gesture() {

@@ -42,6 +42,15 @@ command.
 On first launch, macOS prompts for **Screen Recording**. Approve it in
 *System Settings → Privacy & Security → Screen Recording*, then relaunch.
 
+> ⚠️ **Rebuilds revoke Screen Recording silently.** TCC keys the permission
+> to the binary's ad-hoc code-signature hash, which changes every time you
+> `./build.sh`. After a rebuild, Shangy will silently fall back to its blind
+> offline prophecies. To re-enable: open *System Settings → Privacy &
+> Security → Screen Recording*, remove the old `Shangy` entry, then toggle
+> the new one back on (or just toggle the existing entry off + on). For a
+> stable hash across rebuilds, sign with a real Developer ID instead of
+> ad-hoc.
+
 ## What it does
 
 - Floating, click-through window that spans the bottom of the primary display

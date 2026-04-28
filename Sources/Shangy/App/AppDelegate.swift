@@ -30,11 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.ignoresMouseEvents = true
         panel.orderFrontRegardless()
 
-        if let screen = NSScreen.main {
-            let stageWidthPoints = Double(panel.frame.width) - 80
-            let stageWorldUnits = stageWidthPoints / pixelsPerWorldUnit(for: screen)
-            brain.walkCycle.setStageWidth(stageWorldUnits)
-        }
+        applyStageBounds()
     }
 
     private func panelFrame() -> NSRect {
@@ -46,16 +42,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return NSRect(x: frame.minX, y: frame.minY, width: frame.width, height: height)
     }
 
-    private func pixelsPerWorldUnit(for screen: NSScreen) -> Double {
-        return 180.0
+    private func applyStageBounds() {
+        let viewWidth = Double(panel.frame.width)
+        let viewHeight = Double(panel.frame.height)
+        guard viewHeight > 0 else { return }
+        let aspect = viewWidth / viewHeight
+        // Orthographic camera: visible vertical extent = 2 * orthoScale,
+        // visible horizontal extent = 2 * orthoScale * aspect.
+        let visibleWorldWidth = 2.0 * Double(SoothsayerScene.orthographicScale) * aspect
+        brain.walkCycle.setStageWidth(visibleWorldWidth)
     }
 
     @objc private func screenChanged() {
         panel.setFrame(panelFrame(), display: true)
-        if let screen = NSScreen.main {
-            let stageWidthPoints = Double(panel.frame.width) - 80
-            brain.walkCycle.setStageWidth(stageWidthPoints / pixelsPerWorldUnit(for: screen))
-        }
+        applyStageBounds()
     }
 
     private func installStatusItem() {

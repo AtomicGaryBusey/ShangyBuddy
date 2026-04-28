@@ -99,6 +99,10 @@ Sources/Shangy/
 ## Notes
 
 - Self-contained: the only network call goes to `127.0.0.1:11434`. Screenshots
-  never leave the machine.
+  never leave the machine. The Ollama client refuses to send to any host that
+  isn't `127.0.0.1`, `::1`, or `localhost` (hard-coded loopback guard), uses an
+  ephemeral `URLSession` with no on-disk cache, and the screenshot `Data` is
+  scoped tightly so it's released the moment the request completes — it does
+  not outlive the visible speech bubble.
 - Click-through: the panel ignores mouse events so it doesn't steal clicks
   while pacing across your work. Use the menu bar item to interact.

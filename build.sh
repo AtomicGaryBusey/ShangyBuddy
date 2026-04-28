@@ -18,8 +18,11 @@ mkdir -p "$BIN_DIR" "$RES_DIR"
 cp "$BIN_PATH" "$BIN_DIR/$APP_NAME"
 cp "$ROOT/Sources/Shangy/Resources/Info.plist" "$APP_DIR/Contents/Info.plist"
 
-echo "==> Ad-hoc codesigning (required for ScreenCaptureKit permissions)"
-codesign --force --deep --sign - "$APP_DIR"
+echo "==> Ad-hoc codesigning with hardened runtime"
+# --options runtime enables hardened runtime (library validation, no JIT,
+# no DYLD_ environment overrides). No --deep: the bundle has no nested
+# signables. No --entitlements: this app needs none beyond what TCC grants.
+codesign --force --options runtime --sign - "$APP_DIR"
 
 echo
 echo "Built: $APP_DIR"

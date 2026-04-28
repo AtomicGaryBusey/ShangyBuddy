@@ -17,6 +17,9 @@ final class FloatingPanel: NSPanel {
         hidesOnDeactivate = false
         worksWhenModal = true
         animationBehavior = .none
+        // Don't appear in screen recordings made by other apps — keeps the
+        // bubble's prophecy text out of any unrelated capture surfaces.
+        sharingType = .none
     }
 
     override var canBecomeKey: Bool { false }

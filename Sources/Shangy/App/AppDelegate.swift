@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let brain = ShangyBrain()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.applicationIconImage = makeAppIcon()
         installStatusItem()
         installPanel()
         // Trigger the Screen Recording prompt exactly once at launch if we
@@ -24,6 +25,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             name: NSApplication.didChangeScreenParametersNotification,
             object: nil
         )
+    }
+
+    /// Builds the Dock icon at runtime — purple gradient rounded square with
+    /// a sparkles glyph in white. Avoids shipping an .icns binary.
+    private func makeAppIcon() -> NSImage {
+        let size = NSSize(width: 512, height: 512)
+        let icon = NSImage(size: size)
+        icon.lockFocus()
+
+        let rect = NSRect(origin: .zero, size: size)
+        let path = NSBezierPath(roundedRect: rect, xRadius: 110, yRadius: 110)
+        let gradient = NSGradient(colors: [
+            NSColor(calibratedRed: 0.45, green: 0.10, blue: 0.65, alpha: 1),
+            NSColor(calibratedRed: 0.08, green: 0.02, blue: 0.20, alpha: 1)
+        ])
+        gradient?.draw(in: path, angle: 270)
+
+        if let sparkles = NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil) {
+            let config = NSImage.SymbolConfiguration(pointSize: 320, weight: .regular)
+            let sized = sparkles.withSymbolConfiguration(config) ?? sparkles
+            let symSize = sized.size
+            let centered = NSRect(
+                x: (size.width - symSize.width) / 2,
+                y: (size.height - symSize.height) / 2,
+                width: symSize.width,
+                height: symSize.height
+            )
+            // Tint the template symbol white.
+            NSColor.white.set()
+            sized.draw(in: centered, from: .zero, operation: .sourceAtop, fraction: 0.95)
+        }
+
+        icon.unlockFocus()
+        return icon
     }
 
     private func installPanel() {

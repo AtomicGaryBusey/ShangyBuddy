@@ -17,9 +17,10 @@ final class FloatingPanel: NSPanel {
         hidesOnDeactivate = false
         worksWhenModal = true
         animationBehavior = .none
-        // Don't appear in screen recordings made by other apps — keeps the
-        // bubble's prophecy text out of any unrelated capture surfaces.
-        sharingType = .none
+        // Default sharingType (.readWrite) — the pal shows up in screenshots
+        // and screen recordings. There's nothing actually sensitive about
+        // his cryptic prophecies, and the user wants to be able to capture
+        // him.
     }
 
     override var canBecomeKey: Bool { false }

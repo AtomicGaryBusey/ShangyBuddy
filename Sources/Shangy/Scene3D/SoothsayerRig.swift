@@ -1,5 +1,6 @@
 import AppKit
 import SceneKit
+import simd
 
 final class SoothsayerRig {
     let root = SCNNode()
@@ -95,52 +96,135 @@ final class SoothsayerRig {
     // MARK: - Hair
 
     private func installSpikyHair(on head: SCNNode, material: SCNMaterial) {
-        hair.position = SCNVector3(0, 0.10, -0.02)
+        // Anchor sits low on the skull so the hair's apparent volume floats
+        // above and around the head rather than starting from the crown.
+        hair.position = SCNVector3(0, 0.04, -0.02)
         head.addChildNode(hair)
 
-        let mass = SCNNode(geometry: SCNSphere(radius: 0.22))
+        // Main mass — wider than the head, slightly squashed front-to-back.
+        let mass = SCNNode(geometry: SCNSphere(radius: 0.30))
         mass.geometry?.firstMaterial = material
-        mass.scale = SCNVector3(1.05, 0.95, 1.0)
-        mass.position = SCNVector3(0, 0.05, 0)
+        mass.scale = SCNVector3(1.30, 1.05, 1.10)
+        mass.position = SCNVector3(0, 0.10, -0.03)
         hair.addChildNode(mass)
 
-        let count = 22
-        for i in 0..<count {
-            let theta = CGFloat(i) / CGFloat(count) * .pi * 2
-            let lift = CGFloat.random(in: 0.18...0.42)
-            let spikeLen = CGFloat.random(in: 0.18...0.40)
-            let radius = CGFloat.random(in: 0.05...0.18)
-            let cone = SCNCone(topRadius: 0.005, bottomRadius: 0.04, height: spikeLen)
+        // Secondary lumpy clumps that bulge out from the main mass — these
+        // break the silhouette so it doesn't read as a smooth helmet.
+        for _ in 0..<8 {
+            let clumpRadius = CGFloat.random(in: 0.10...0.18)
+            let theta = CGFloat.random(in: 0...(2 * .pi))
+            // Bias clumps toward the upper sides
+            let phi = CGFloat.random(in: 0.10...(0.75 * .pi))
+            let dist: CGFloat = 0.30
+            let clump = SCNNode(geometry: SCNSphere(radius: clumpRadius))
+            clump.geometry?.firstMaterial = material
+            clump.position = SCNVector3(
+                dist * sin(phi) * cos(theta),
+                0.10 + dist * cos(phi),
+                -0.03 + dist * sin(phi) * sin(theta)
+            )
+            clump.scale = SCNVector3(
+                CGFloat.random(in: 0.85...1.15),
+                CGFloat.random(in: 0.75...1.10),
+                CGFloat.random(in: 0.85...1.15)
+            )
+            hair.addChildNode(clump)
+        }
+
+        // Long, chaotic tendrils radiating outward over the upper hemisphere.
+        // Spherical coords: theta is azimuth around Y, phi is the polar angle
+        // measured from +Y. phi=0 → straight up, phi=π/2 → sideways.
+        let spikeCount = 60
+        for _ in 0..<spikeCount {
+            let theta = CGFloat.random(in: 0...(2 * .pi))
+            // Bias phi toward the top (smaller phi) but allow sideways spikes.
+            let phiBase = CGFloat.random(in: 0...1)
+            let phi = phiBase * phiBase * 0.85 * .pi
+
+            let spikeLen = CGFloat.random(in: 0.22...0.55)
+            let baseRadius: CGFloat = 0.30 + CGFloat.random(in: 0...0.04)
+
+            let radial = simd_normalize(simd_float3(
+                Float(sin(phi) * cos(theta)),
+                Float(cos(phi)),
+                Float(sin(phi) * sin(theta))
+            ))
+
+            let cone = SCNCone(
+                topRadius: 0.002,
+                bottomRadius: CGFloat.random(in: 0.018...0.030),
+                height: spikeLen
+            )
             cone.firstMaterial = material
             let n = SCNNode(geometry: cone)
-            let baseX = radius * cos(theta)
-            let baseZ = radius * sin(theta) * 0.8
-            n.position = SCNVector3(baseX, 0.10 + lift * 0.25, baseZ)
-            n.eulerAngles = SCNVector3(
-                CGFloat(-sin(theta) * 0.6),
-                CGFloat.random(in: -0.4...0.4),
-                CGFloat(cos(theta) * 0.6)
+
+            // Cone's local +Y axis is its height direction (base→tip). Place
+            // the node so its center sits on the radial line at half-spike
+            // beyond the hair-mass surface, then rotate +Y to point along
+            // radial so the tip ends up at (baseRadius + spikeLen)*radial.
+            let centerDist = baseRadius + spikeLen / 2
+            n.position = SCNVector3(
+                CGFloat(radial.x) * centerDist,
+                0.10 + CGFloat(radial.y) * centerDist,
+                -0.03 + CGFloat(radial.z) * centerDist
             )
+            n.simdOrientation = orientationToAlignY(with: radial)
+
+            // Add a small random twist so spikes don't all align on a perfect
+            // radial — keeps the silhouette ragged.
+            let jitterAxis = simd_normalize(simd_float3(
+                Float.random(in: -1...1),
+                Float.random(in: -1...1),
+                Float.random(in: -1...1)
+            ))
+            let jitter = simd_quatf(angle: Float.random(in: -0.25...0.25), axis: jitterAxis)
+            n.simdOrientation = jitter * n.simdOrientation
+
             hair.addChildNode(n)
         }
 
-        for _ in 0..<4 {
-            let spikeLen = CGFloat.random(in: 0.30...0.50)
-            let cone = SCNCone(topRadius: 0.004, bottomRadius: 0.035, height: spikeLen)
+        // Front fringe — a few longer spikes angled forward over the brow.
+        for _ in 0..<6 {
+            let spikeLen = CGFloat.random(in: 0.35...0.60)
+            let theta = CGFloat.random(in: -CGFloat.pi * 0.30...CGFloat.pi * 0.30) - .pi / 2
+            let phi = CGFloat.random(in: 0.20...0.55)
+
+            let radial = simd_normalize(simd_float3(
+                Float(sin(phi) * cos(theta)),
+                Float(cos(phi)),
+                Float(sin(phi) * sin(theta))
+            ))
+
+            let cone = SCNCone(topRadius: 0.002, bottomRadius: 0.025, height: spikeLen)
             cone.firstMaterial = material
             let n = SCNNode(geometry: cone)
+            let centerDist = 0.30 + spikeLen / 2
             n.position = SCNVector3(
-                CGFloat.random(in: -0.10...0.10),
-                0.20,
-                CGFloat.random(in: 0.04...0.10)
+                CGFloat(radial.x) * centerDist,
+                0.10 + CGFloat(radial.y) * centerDist,
+                -0.03 + CGFloat(radial.z) * centerDist
             )
-            n.eulerAngles = SCNVector3(
-                CGFloat.random(in: -0.4 ... -0.1),
-                CGFloat.random(in: -0.3...0.3),
-                CGFloat.random(in: -0.3...0.3)
-            )
+            n.simdOrientation = orientationToAlignY(with: radial)
             hair.addChildNode(n)
         }
+    }
+
+    /// Quaternion that rotates the local +Y axis to point along `target`.
+    /// Cones in SceneKit have their height along +Y, so this aligns a cone
+    /// (base→tip) with an arbitrary direction vector.
+    private func orientationToAlignY(with target: simd_float3) -> simd_quatf {
+        let up = simd_float3(0, 1, 0)
+        let dotP = max(-1, min(1, simd_dot(up, target)))
+        if dotP > 0.9999 {
+            return simd_quatf(angle: 0, axis: simd_float3(0, 1, 0))
+        }
+        if dotP < -0.9999 {
+            // Antiparallel — rotate 180° around any perpendicular axis.
+            return simd_quatf(angle: .pi, axis: simd_float3(1, 0, 0))
+        }
+        let axis = simd_normalize(simd_cross(up, target))
+        let angle = acos(dotP)
+        return simd_quatf(angle: angle, axis: axis)
     }
 
     // MARK: - Glasses

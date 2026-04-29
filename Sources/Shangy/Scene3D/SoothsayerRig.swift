@@ -96,8 +96,8 @@ final class SoothsayerRig {
     // MARK: - Hair
 
     private func installSpikyHair(on head: SCNNode, material: SCNMaterial) {
-        // Anchor sits low on the skull so the hair's apparent volume floats
-        // above and around the head rather than starting from the crown.
+        // Anchor sits low on the skull so the hair's volume floats above and
+        // around the head rather than starting from the crown.
         hair.position = SCNVector3(0, 0.04, -0.02)
         head.addChildNode(hair)
 
@@ -108,15 +108,25 @@ final class SoothsayerRig {
         mass.position = SCNVector3(0, 0.10, -0.03)
         hair.addChildNode(mass)
 
-        // Secondary lumpy clumps that bulge out from the main mass — these
-        // break the silhouette so it doesn't read as a smooth helmet.
-        for _ in 0..<8 {
-            let clumpRadius = CGFloat.random(in: 0.10...0.18)
+        // Camera looks down -Z from +Z, so +Z is the front of the character
+        // (where the face/glasses live). Anything pointing toward +Z occludes
+        // the glasses. Reject any candidate whose radial direction has
+        // radial.z > frontThreshold so spikes/clumps stay on top, sides, and
+        // back of the head only.
+        let frontThreshold: Float = 0.30
+
+        // Secondary lumpy clumps that bulge out so the hair silhouette
+        // doesn't read as a smooth helmet.
+        var clumps = 0
+        var clumpAttempts = 0
+        while clumps < 5 && clumpAttempts < 80 {
+            clumpAttempts += 1
             let theta = CGFloat.random(in: 0...(2 * .pi))
-            // Bias clumps toward the upper sides
-            let phi = CGFloat.random(in: 0.10...(0.75 * .pi))
+            let phi = CGFloat.random(in: 0.10...(0.65 * .pi))
+            let zComp = Float(sin(phi) * sin(theta))
+            if zComp > frontThreshold { continue }
             let dist: CGFloat = 0.30
-            let clump = SCNNode(geometry: SCNSphere(radius: clumpRadius))
+            let clump = SCNNode(geometry: SCNSphere(radius: CGFloat.random(in: 0.10...0.16)))
             clump.geometry?.firstMaterial = material
             clump.position = SCNVector3(
                 dist * sin(phi) * cos(theta),
@@ -129,27 +139,29 @@ final class SoothsayerRig {
                 CGFloat.random(in: 0.85...1.15)
             )
             hair.addChildNode(clump)
+            clumps += 1
         }
 
-        // Long, chaotic tendrils radiating outward over the upper hemisphere.
-        // Spherical coords: theta is azimuth around Y, phi is the polar angle
-        // measured from +Y. phi=0 → straight up, phi=π/2 → sideways.
-        let spikeCount = 60
-        for _ in 0..<spikeCount {
+        // Tendrils radiating outward — top, sides, and back only.
+        var spikes = 0
+        var spikeAttempts = 0
+        while spikes < 30 && spikeAttempts < 200 {
+            spikeAttempts += 1
             let theta = CGFloat.random(in: 0...(2 * .pi))
             // Bias phi toward the top (smaller phi) but allow sideways spikes.
             let phiBase = CGFloat.random(in: 0...1)
             let phi = phiBase * phiBase * 0.85 * .pi
-
-            let spikeLen = CGFloat.random(in: 0.22...0.55)
-            let baseRadius: CGFloat = 0.30 + CGFloat.random(in: 0...0.04)
 
             let radial = simd_normalize(simd_float3(
                 Float(sin(phi) * cos(theta)),
                 Float(cos(phi)),
                 Float(sin(phi) * sin(theta))
             ))
+            // Skip front-facing spikes — they'd block the glasses.
+            if radial.z > frontThreshold { continue }
 
+            let spikeLen = CGFloat.random(in: 0.22...0.50)
+            let baseRadius: CGFloat = 0.30 + CGFloat.random(in: 0...0.04)
             let cone = SCNCone(
                 topRadius: 0.002,
                 bottomRadius: CGFloat.random(in: 0.018...0.030),
@@ -158,10 +170,6 @@ final class SoothsayerRig {
             cone.firstMaterial = material
             let n = SCNNode(geometry: cone)
 
-            // Cone's local +Y axis is its height direction (base→tip). Place
-            // the node so its center sits on the radial line at half-spike
-            // beyond the hair-mass surface, then rotate +Y to point along
-            // radial so the tip ends up at (baseRadius + spikeLen)*radial.
             let centerDist = baseRadius + spikeLen / 2
             n.position = SCNVector3(
                 CGFloat(radial.x) * centerDist,
@@ -170,24 +178,25 @@ final class SoothsayerRig {
             )
             n.simdOrientation = orientationToAlignY(with: radial)
 
-            // Add a small random twist so spikes don't all align on a perfect
-            // radial — keeps the silhouette ragged.
+            // Small random twist so spikes don't all sit on a perfect radial.
             let jitterAxis = simd_normalize(simd_float3(
                 Float.random(in: -1...1),
                 Float.random(in: -1...1),
                 Float.random(in: -1...1)
             ))
-            let jitter = simd_quatf(angle: Float.random(in: -0.25...0.25), axis: jitterAxis)
+            let jitter = simd_quatf(angle: Float.random(in: -0.20...0.20), axis: jitterAxis)
             n.simdOrientation = jitter * n.simdOrientation
-
             hair.addChildNode(n)
+            spikes += 1
         }
 
-        // Front fringe — a few longer spikes angled forward over the brow.
-        for _ in 0..<6 {
-            let spikeLen = CGFloat.random(in: 0.35...0.60)
-            let theta = CGFloat.random(in: -CGFloat.pi * 0.30...CGFloat.pi * 0.30) - .pi / 2
-            let phi = CGFloat.random(in: 0.20...0.55)
+        // Front fringe — short spikes that emerge from the top of the
+        // forehead and angle up+forward. phi kept small so the spike base
+        // sits high on the skull (well above the glasses) and the tip
+        // travels further upward than forward.
+        for _ in 0..<5 {
+            let theta: CGFloat = .pi / 2 + CGFloat.random(in: -0.4...0.4)
+            let phi: CGFloat = CGFloat.random(in: 0.20...0.45)
 
             let radial = simd_normalize(simd_float3(
                 Float(sin(phi) * cos(theta)),
@@ -195,10 +204,12 @@ final class SoothsayerRig {
                 Float(sin(phi) * sin(theta))
             ))
 
-            let cone = SCNCone(topRadius: 0.002, bottomRadius: 0.025, height: spikeLen)
+            let spikeLen = CGFloat.random(in: 0.28...0.42)
+            let cone = SCNCone(topRadius: 0.002, bottomRadius: 0.022, height: spikeLen)
             cone.firstMaterial = material
             let n = SCNNode(geometry: cone)
-            let centerDist = 0.30 + spikeLen / 2
+            let baseRadius: CGFloat = 0.30
+            let centerDist = baseRadius + spikeLen / 2
             n.position = SCNVector3(
                 CGFloat(radial.x) * centerDist,
                 0.10 + CGFloat(radial.y) * centerDist,
